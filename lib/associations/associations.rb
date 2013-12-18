@@ -3,6 +3,27 @@ module ActiveHash
 
     module ActiveRecordExtensions
 
+      def has_many(association_id, options = {})
+
+        define_method(association_id) do
+          options = {
+            :class_name => association_id.to_s.classify,
+            :foreign_key => self.class.to_s.foreign_key,
+            :primary_key => self.class.primary_key
+          }.merge(options)
+
+          klass = options[:class_name].constantize
+          primary_key_value = send(options[:primary_key])
+
+          if ActiveRecord.const_defined?(:Relation) && klass < ActiveRecord::Relation
+            klass.where(options[:foreign_key] => primary_key_value)
+          elsif klass.respond_to?(:scoped)
+            klass.scoped(:conditions => {options[:foreign_key] => primary_key_value})
+          else
+            klass.send("find_all_by_#{options[:foreign_key]}", primary_key_value)
+          end
+        end
+      end
       def belongs_to(*args)
         our_args = args.dup
         options = our_args.extract_options!
@@ -70,27 +91,6 @@ module ActiveHash
     end
 
     module Methods
-      def has_many(association_id, options = {})
-
-        define_method(association_id) do
-          options = {
-            :class_name => association_id.to_s.classify,
-            :foreign_key => self.class.to_s.foreign_key,
-            :primary_key => self.class.primary_key
-          }.merge(options)
-
-          klass = options[:class_name].constantize
-          primary_key_value = send(options[:primary_key])
-
-          if ActiveRecord.const_defined?(:Relation) && klass < ActiveRecord::Relation
-            klass.where(options[:foreign_key] => primary_key_value)
-          elsif klass.respond_to?(:scoped)
-            klass.scoped(:conditions => {options[:foreign_key] => primary_key_value})
-          else
-            klass.send("find_all_by_#{options[:foreign_key]}", primary_key_value)
-          end
-        end
-      end
 
       def has_one(association_id, options = {})
         define_method(association_id) do
